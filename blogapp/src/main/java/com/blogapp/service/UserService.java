@@ -14,7 +14,7 @@ public interface UserService {
     String userAuthentication(LoginDto loginDto);
     String deleteUserDetails(Long userId);
     UserDetailsDto updateUserDetails(Long userId, UserDto userDto,MultipartFile profileImage);
-    UserDetailsDto getUserByUsername(Long userId);
+    UserDetailsDto getUserById(Long userId);
     List<UserDetailsDto> listOfUsers();
     boolean verifyUser(String userEmailId);
 }

@@ -79,6 +79,12 @@
 			<version>1.12.779</version>
 		</dependency>
 
+		<!-- Spring Boot Starter Logging (includes Logback) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-logging</artifactId>
+		</dependency>
+
 	</dependencies>
 
 	<build>

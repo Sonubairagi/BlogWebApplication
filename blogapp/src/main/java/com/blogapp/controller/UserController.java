@@ -1,10 +1,13 @@
 package com.blogapp.controller;
 
+import com.blogapp.exception.ImageUploadException;
 import com.blogapp.payload.LoginDto;
 import com.blogapp.payload.UserDetailsDto;
 import com.blogapp.payload.UserDto;
 import com.blogapp.service.UserService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +20,8 @@ import java.lang.String;
 @RequestMapping("api/auth/user")
 public class UserController {
 
+    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
+
     private UserService userService;
     public UserController(UserService userService){
         this.userService = userService;
@@ -28,8 +33,17 @@ public class UserController {
             @Valid @RequestPart("userDto") UserDto userDto,
             @RequestPart("profileImage") MultipartFile profileImage
     ){
-        UserDetailsDto userDetails = userService.userRegister(userDto,profileImage);
-        return new ResponseEntity<>(userDetails, HttpStatus.CREATED);
+        logger.info("Entering getUser with User: {}", userDto);
+        UserDetailsDto userDetails = null;
+        if(!profileImage.isEmpty()){
+            logger.info("Successfully retrieved profile image: {}", profileImage);
+            userDetails = userService.userRegister(userDto,profileImage);
+            return new ResponseEntity<>(userDetails, HttpStatus.CREATED);
+        }else{
+            ImageUploadException e = new ImageUploadException("Image is not getting!");
+            logger.error("Failed! to retrieve user profile image: {} : {}",e.getMessage(),e.getStackTrace());
+            return new ResponseEntity<>(userDetails, HttpStatus.BAD_REQUEST);
+        }
     }
 
     //http://localhost:8080/api/auth/user/verify?userEmailId=emailId
@@ -37,12 +51,18 @@ public class UserController {
     public ResponseEntity<String> verifyUser(
             @RequestParam("userEmailId")String userEmailId
     ){
-        boolean isVerified = userService.verifyUser(userEmailId);
+        boolean isVerified = false;
+
+        logger.info("Getting User verify email: {}", userEmailId);
+
+        isVerified = userService.verifyUser(userEmailId);
 
         if (isVerified) {
-            return ResponseEntity.ok("User successfully verified!");
+            logger.info("Successfully retrieved user verify email: {} is verified: {}", userEmailId,isVerified);
+            return new ResponseEntity<>("User successfully verified!",HttpStatus.OK);
         } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid user email ID.");
+            logger.error("Failed to User verification: {}", isVerified);
+            return new ResponseEntity<>("Invalid user email ID.",HttpStatus.BAD_REQUEST);
         }
     }
 
@@ -60,8 +80,14 @@ public class UserController {
     public ResponseEntity<String> userDelete(
             @PathVariable Long userId
     ){
-        String deleteUser = userService.deleteUserDetails(userId);
-        return new ResponseEntity<>(deleteUser, HttpStatus.OK);
+        if(userId != null){
+            logger.info("Successfully getting user id: {}",userId);
+            String deleteUser = userService.deleteUserDetails(userId);
+            return new ResponseEntity<>(deleteUser, HttpStatus.OK);
+        }else {
+            logger.error("Failed! User id is not getting: {}", userId);
+            return new ResponseEntity<>("User id not getting...", HttpStatus.BAD_REQUEST);
+        }
     }
 
     //http://localhost:8080/api/auth/user/updateUser/{userId}
@@ -71,8 +97,17 @@ public class UserController {
             @RequestPart("userDto") UserDto userDto,
             @RequestPart("file") MultipartFile profileImage
     ){
-        UserDetailsDto updateUser = userService.updateUserDetails(userId,userDto,profileImage);
-        return new ResponseEntity<>(updateUser, HttpStatus.OK);
+        UserDetailsDto updateUser = null;
+        logger.info("Update user information: {}", userDto);
+        if(userId != null){
+            logger.info("Success! Updated User id is: {}",userId);
+             updateUser = userService.updateUserDetails(userId,userDto,profileImage);
+            return new ResponseEntity<>(updateUser, HttpStatus.OK);
+        }else{
+            logger.error("Failed! User id is not correct: {}", userId);
+            return new ResponseEntity<>(updateUser, HttpStatus.BAD_REQUEST);
+        }
+
     }
 
     //http://localhost:8080/api/auth/user/{userId}
@@ -80,14 +115,24 @@ public class UserController {
     public ResponseEntity<UserDetailsDto> getUserById(
             @PathVariable Long userId
     ){
-        UserDetailsDto user = userService.getUserByUsername(userId);
-        return new ResponseEntity<>(user,HttpStatus.OK);
+        UserDetailsDto user = null;
+        if(userId != null){
+            logger.info("Success! Get the user id is: {}",userId);
+            user = userService.getUserById(userId);
+            return new ResponseEntity<>(user,HttpStatus.OK);
+        }else{
+            logger.error("Failed! Get the User id is not correct: {}", userId);
+            return new ResponseEntity<>(user,HttpStatus.BAD_REQUEST);
+        }
     }
 
     //http://localhost:8080/api/auth/user
     @GetMapping
     public ResponseEntity<List<UserDetailsDto>> getUsers(){
         List<UserDetailsDto> listOfUsers = userService.listOfUsers();
+        if(listOfUsers != null){
+            logger.info("Getting all the users object: {}",listOfUsers);
+        }
         return new ResponseEntity<>(listOfUsers,HttpStatus.OK);
     }
 

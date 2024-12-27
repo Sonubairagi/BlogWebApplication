@@ -4,6 +4,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.blogapp.entity.Address;
 import com.blogapp.entity.User;
 import com.blogapp.exception.UserAlreadyExistsException;
+import com.blogapp.exception.UserNotFoundException;
 import com.blogapp.payload.LoginDto;
 import com.blogapp.payload.UserDetailsDto;
 import com.blogapp.payload.UserDto;
@@ -11,6 +12,8 @@ import com.blogapp.repository.AddressRepository;
 import com.blogapp.repository.UserRepository;
 import com.blogapp.util.EmailSenderService;
 import org.modelmapper.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -23,6 +26,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class UserServiceImpl implements UserService{
+
+    private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
 
     @Autowired
     private UserRepository userRepository;
@@ -60,50 +65,18 @@ public class UserServiceImpl implements UserService{
         return modelMapper.map(userDto,User.class);
     }
 
-    @Override
-    public UserDetailsDto userRegister(UserDto userDto,MultipartFile profileImage){
-
-        Optional<User> opUser = userRepository.findByUserName(userDto.getUserName());
-        if(opUser.isPresent()){
-            throw new UserAlreadyExistsException("User with username " + userDto.getUserName() + " already exists.");
-        }
-        User user = mapToEntity(userDto);
-        user.setRole("ROLE_USER");
-
-        //password encryption
-        //String password = userDto.getPassword();
-
-        user.setCreateAt(LocalDateTime.now().withNano(0));
-        user.setUpdateAt(LocalDateTime.now().withNano(0));
-
-        //image store in db and local
-//        String originalFilename = System.currentTimeMillis()+""+profileImage.getOriginalFilename();
-//        Path fileNameAndPath = Paths.get(uploadDir+"user_profile",originalFilename);
-//        try {
-//            Files.write(fileNameAndPath,profileImage.getBytes());
-//            user.setProfileImagePath(originalFilename);
-//        }catch (Exception e){
-//            e.printStackTrace();
-//        }
-
-        //image upload in aws cloud
-        if(profileImage != null && !profileImage.isEmpty()){
-            String imageUrl = awsS3Service.uploadImage(profileImage);
-            user.setProfileImagePath(imageUrl);
-        }
-
+    public Address mapToAddress(UserDto userDto){
         Address address = new Address();
         address.setAreaName(userDto.getAddress().getAreaName());
         address.setCityName(userDto.getAddress().getCityName());
         address.setPinCode(userDto.getAddress().getPinCode());
         address.setStateName(userDto.getAddress().getStateName());
         address.setCountryName(userDto.getAddress().getCountryName());
-        user.setAddress(address);
+        return address;
+    }
 
-        String subject = "Email Verification";
-        String verificationLink = "http://192.168.31.94:8080/api/auth/user/verify?userEmailId=" + user.getEmail();
-
-        String body = String.format(
+    public String emailFormatting(String username,String verificationLink){
+        return String.format(
                 "<div style='width: 100%%; height: 100%%; display: flex; justify-content: center; align-items: center;'>" +
                         "<div style='text-align: center; padding: 20px; border: 1px solid #4CAF50; border-radius: 10px;'>" +
                         "<p style='font-size: 16px; font-weight: bold;'>Hello %s,</p>" +
@@ -114,54 +87,99 @@ public class UserServiceImpl implements UserService{
                         "<p style='font-size: 16px;'>If you did not register, please ignore this email.</p>" +
                         "</div>" +
                         "</div>",
-                userDto.getUserName(), verificationLink);
-
-        User saved = userRepository.save(user);
-        if(saved!=null){
-            try {
-                System.out.println("email sending");
-//                emailSenderService.sendHtmlEmail(user.getEmail(),subject,body); //MessagingException
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        return mapToDto(saved);
+                username, verificationLink);
     }
 
-    //only get the image url you can use this method
-//    public String preSignedUrl(String fileName){
-//        Date expirationDate = new Date();
-//
-//        Long time = expirationDate.getTime();
-//        int hour = 1;
-//        time = time + hour * 60 * 60;
-//
-//        expirationDate.setTime(time);
-//
-//        GeneratePresignedUrlRequest generatePresignedUrlRequest =
-//                new GeneratePresignedUrlRequest(
-//                        bucketName,
-//                        fileName)
-//                        .withMethod(HttpMethod.GET)
-//                        .withExpiration(expirationDate);
-//        URL url = client.generatePresignedUrl(generatePresignedUrlRequest);
-//        return url.toString();
-//    }
+    @Override
+    public UserDetailsDto userRegister(UserDto userDto,MultipartFile profileImage){
+        logger.debug("Processing user with user object: {}", userDto);
+        User user = null;
+        String imageUrl = null;
+        String subject = null;
+        String verificationLink = null;
+        String body = null;
+        User saved = null;
+        try{
+            Optional<User> opUser = userRepository.findByUserName(userDto.getUserName());
+            if(opUser.isPresent()){
+                logger.warn("Warning! User Already Exists: {}", opUser.get().getUserName());
+                throw new UserAlreadyExistsException("User with username " + userDto.getUserName() + " already exists.");
+            }
 
+            logger.info("Successfully processed user: {}", opUser);
+
+            user = mapToEntity(userDto);
+            user.setRole("ROLE_USER");
+
+            //password encryption
+            //String password = userDto.getPassword();
+
+            user.setCreateAt(LocalDateTime.now().withNano(0));
+            user.setUpdateAt(LocalDateTime.now().withNano(0));
+
+            //image store in db and local
+            //String originalFilename = System.currentTimeMillis()+""+profileImage.getOriginalFilename();
+            //Path fileNameAndPath = Paths.get(uploadDir+"user_profile",originalFilename);
+            //try {
+            //     Files.write(fileNameAndPath,profileImage.getBytes());
+            //     user.setProfileImagePath(originalFilename);
+            //}catch (Exception e){
+            //     e.printStackTrace();
+            //}
+
+            //image upload in aws cloud
+            if(profileImage != null && !profileImage.isEmpty()){
+                imageUrl = awsS3Service.uploadImage(profileImage);
+                logger.info("Successfully processed user profile image: {}", profileImage);
+                user.setProfileImagePath(imageUrl);
+            }else{
+               logger.warn("User profile image is not getting: {}",profileImage);
+            }
+
+            user.setAddress(mapToAddress(userDto));
+
+            verificationLink = "http://192.168.31.94:8080/api/auth/user/verify?userEmailId=" + user.getEmail();
+            body = emailFormatting(userDto.getUserName(), verificationLink);
+
+            saved = userRepository.save(user);
+            logger.info("User registration Successfully!");
+            if(saved != null){
+                try {
+                    subject = "Email Verification";
+                    logger.info("User registration email sending...");
+                    emailSenderService.sendHtmlEmail(user.getEmail(),subject,body); //MessagingException
+                } catch (Exception e) {
+                    logger.error("User registration failed! not sending email: {} : {}",e.getMessage(),e.getStackTrace());
+                }
+                return mapToDto(saved);
+            }
+        }catch (Exception e){
+            logger.error("User Details :- {} : {}",e.getMessage(),e.getStackTrace());
+        }
+        return null;
+    }
 
     public boolean verifyUser(String userEmailId) {
-        Optional<User> optionalUser = userRepository.findByEmail(userEmailId);
-
-        if (optionalUser.isPresent()) {
-            User user = optionalUser.get();
-//            user.setRole(user.getRole());
-            user.setCreateAt(user.getCreateAt());
-            user.setUpdateAt(LocalDateTime.now().withNano(0));
-            user.setAddress(user.getAddress());
-            user.setVerified(true); // Mark the user as verified
-            userRepository.save(user);
-            return true;
+        logger.debug("Processing user verification {}", userEmailId);
+        Optional<User> optionalUser = null;
+        try{
+            optionalUser = userRepository.findByEmail(userEmailId);
+            if (optionalUser.isPresent()) {
+                logger.info("Successfully processed user by: {}", optionalUser.get().getUserName());
+                User user = optionalUser.get();
+                //user.setRole(user.getRole());
+                user.setCreateAt(user.getCreateAt());
+                user.setUpdateAt(LocalDateTime.now().withNano(0));
+                user.setAddress(user.getAddress());
+                user.setVerified(true); // Mark the user as verified
+                User verify = userRepository.save(user);
+                if(verify != null){
+                    logger.info("Success! User verification is done");
+                    return true;
+                }
+            }
+        }catch (Exception e){
+            logger.error("Failed! User verification: {} : {}",e.getMessage(),e.getStackTrace());
         }
         return false;
     }
@@ -182,64 +200,81 @@ public class UserServiceImpl implements UserService{
 
     @Override
     public String deleteUserDetails(Long userId) {
-        Optional<User> opUser = userRepository.findById(userId);
-        if(opUser.isPresent()){
-            boolean deleteImage = awsS3Service.deleteImage(opUser.get().getProfileImagePath());
-            if(deleteImage){
-                userRepository.deleteById(userId);
-                return "User is deleted by user id : "+userId;
+        logger.debug("Processing user with ID: {}", userId);
+        boolean deleteImage = false;
+        try{
+            Optional<User> opUser = userRepository.findById(userId);
+            if(opUser.isPresent()){
+                logger.info("Successfully processed user!");
+                deleteImage = awsS3Service.deleteImage(opUser.get().getProfileImagePath());
+                if(deleteImage){
+                    userRepository.deleteById(userId);
+                    logger.info("Successfully processed user is deleted!");
+                    return "User is deleted by user id : "+userId;
+                }
             }
+        }catch (Exception e){
+            logger.error("User not found: {}",e.getMessage());
+            throw new UserNotFoundException("user is not found by userId " + userId);
         }
         return "user is not found!";
     }
 
     @Override
     public UserDetailsDto updateUserDetails(Long userId, UserDto userDto,MultipartFile profileImage) {
-        Optional<User> opUser = userRepository.findById(userId);
-        if(opUser.isPresent()){
-            User user = opUser.get();
-            user.setUserName(userDto.getUserName());
-            user.setMobile(userDto.getMobile());
-            user.setRole(user.getRole());
-            user.setCreateAt(user.getCreateAt());
-            user.setUpdateAt(LocalDateTime.now().withNano(0));
+        logger.debug("Processing user with id: {}", userId);
+        Optional<User> opUser;
+        boolean deleteImage = false;
+        String newImageUrl = null;
+        try{
+            opUser = userRepository.findById(userId);
+            if(opUser.isPresent()){
+                logger.info("Successfully processed user");
+                User user = opUser.get();
+                user.setUserName(userDto.getUserName());
+                user.setMobile(userDto.getMobile());
+                user.setRole(user.getRole());
+                user.setCreateAt(user.getCreateAt());
+                user.setUpdateAt(LocalDateTime.now().withNano(0));
 
-            Address address = new Address();
-            address.setId(user.getAddress().getId());
-            address.setAreaName(userDto.getAddress().getAreaName());
-            address.setCityName(userDto.getAddress().getCityName());
-            address.setPinCode(userDto.getAddress().getPinCode());
-            address.setStateName(userDto.getAddress().getStateName());
-            address.setCountryName(userDto.getAddress().getCountryName());
+                user.setAddress(mapToAddress(userDto));
 
-            user.setAddress(address);
-
-            if (profileImage != null && !profileImage.isEmpty()) {
-                boolean deleteImage = awsS3Service.deleteImage(user.getProfileImagePath());
-                if(deleteImage){
-                    String newImageUrl = awsS3Service.uploadImage(profileImage);
-                    user.setProfileImagePath(newImageUrl);
+                if (profileImage != null && !profileImage.isEmpty()) {
+                    deleteImage = awsS3Service.deleteImage(user.getProfileImagePath());
+                    if(deleteImage){
+                        newImageUrl = awsS3Service.uploadImage(profileImage);
+                        user.setProfileImagePath(newImageUrl);
+                        logger.info("Success! processed user profile image: {}", profileImage);
+                    }
                 }
+                //password not update
+                //email not update
+
+                User saved = userRepository.save(user);
+                logger.info("Success! update user details");
+                return mapToDto(saved);
             }
-            //password not update
-            //email not update
-            User saved = userRepository.save(user);
-            return mapToDto(saved);
+        }catch (Exception e){
+            logger.error("User details not updated: {} : {}",e.getMessage(),e.getStackTrace());
         }
         return null;
     }
 
     @Override
-    public UserDetailsDto getUserByUsername(Long userId) {
+    public UserDetailsDto getUserById(Long userId) {
+        logger.debug("Processing get user with ID: {}", userId);
         Optional<User> opUser = userRepository.findById(userId);
         if(opUser.isPresent()){
+            logger.info("Success! User object is present");
             return mapToDto(opUser.get());
         }
+        logger.warn("user not found by id: {}",userId);
         return null;
     }
 
     @Override
     public List<UserDetailsDto> listOfUsers() {
+        logger.debug("Processing get all users..");
         List<User> userList = userRepository.findAll();
         return userList.stream().map((element) -> modelMapper.map(element, UserDetailsDto.class)).collect(Collectors.toList());
     }

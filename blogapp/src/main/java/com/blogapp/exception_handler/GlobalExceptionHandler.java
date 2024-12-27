@@ -1,10 +1,7 @@
 package com.blogapp.exception_handler;
-import com.blogapp.exception.ImageUploadException;
+import com.blogapp.exception.*;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import com.blogapp.exception.CategoryAlreadyExistsException;
-import com.blogapp.exception.ImagesLimitExceedException;
-import com.blogapp.exception.UserAlreadyExistsException;
 import com.blogapp.payload.ErrorDetails;
 import com.blogapp.payload.ValidationError;
 import org.springframework.http.HttpStatus;
@@ -75,6 +72,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ImageUploadException.class)
     public ResponseEntity<ErrorDetails> handleImageUploadException(
             ImageUploadException e,
+            WebRequest request
+    ){
+        ErrorDetails getDetails = new ErrorDetails(
+                new Date(),
+                e.getMessage(),
+                request.getDescription(false)
+        );
+        return new ResponseEntity<>(getDetails, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ErrorDetails> handleUserNotFoundException(
+            UserNotFoundException e,
             WebRequest request
     ){
         ErrorDetails getDetails = new ErrorDetails(

@@ -4,6 +4,8 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.blogapp.exception.ImageUploadException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,8 @@ import java.util.UUID;
 @Service
 public class AwsS3Service {
 
+    private static final Logger logger = LoggerFactory.getLogger(AwsS3Service.class);
+
     @Autowired
     private AmazonS3 amazonS3;
 
@@ -25,35 +29,36 @@ public class AwsS3Service {
     // Upload Image
     public String uploadImage(MultipartFile profileImage){
         String originalFileName;
-        String fileName;
+        String fileName = null;
         ObjectMetadata metadata;
         URL url;
 
         try{
-            if (profileImage.getSize() != 0){
-                System.out.println(profileImage.getSize());
-            }
-
             if (profileImage.isEmpty()){
+                logger.warn("Failed! Image is not uploaded because image is not getting in the URL");
                 throw new ImageUploadException("Image is not uploaded!");
             }
 
             originalFileName = profileImage.getOriginalFilename();
-            fileName = UUID.randomUUID().toString()+originalFileName.substring(originalFileName.lastIndexOf("."));
 
             metadata = new ObjectMetadata();
             metadata.setContentLength(profileImage.getSize());
 
             try {
-                amazonS3.putObject(bucketName,fileName,profileImage.getInputStream(),metadata);
-                url = amazonS3.getUrl(bucketName,fileName);
-                return url.toString();
-            }catch (IOException e){
-                throw new ImageUploadException("Failed to upload image to AWS S3 " + e);
+                if(originalFileName != null){
+                    fileName = UUID.randomUUID().toString()+originalFileName.substring(originalFileName.lastIndexOf("."));
+                    amazonS3.putObject(bucketName,fileName,profileImage.getInputStream(),metadata);
+                    url = amazonS3.getUrl(bucketName,fileName);
+                    logger.info("Success! image store in cloud...");
+                    return url.toString();
+                }
+            }catch (Exception e){
+                logger.error("Failed! to uploaded image in cloud: {}",e.getMessage());
+                throw new ImageUploadException("Failed! to upload image to AWS S3 " + e);
             }
 
-        }catch (Exception e){
-            e.printStackTrace();
+        }catch(Exception e){
+            logger.error("Failed! Image not uploaded: {} : {}",e.getMessage(),e.getStackTrace());
         }
         return null;
     }

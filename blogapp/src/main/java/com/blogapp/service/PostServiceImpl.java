@@ -12,6 +12,8 @@ import com.blogapp.repository.PostRepository;
 import com.blogapp.repository.UserRepository;
 import com.blogapp.util.EmailService;
 import org.modelmapper.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class PostServiceImpl implements PostService {
+
+    private static final Logger logger = LoggerFactory.getLogger(PostServiceImpl.class);
+
     @Autowired
     private PostRepository postRepository;
 
@@ -63,44 +68,33 @@ public class PostServiceImpl implements PostService {
         return postDto;
     }
 
-    public Post mapToEntity(PostDto postDto){
-        return modelMapper.map(postDto,Post.class);
+    public Post mapToEntity(PostDto postDto) {
+        return modelMapper.map(postDto, Post.class);
     }
 
     @Override
-    public PostDetailsDto addPost(PostDto postDto,List<MultipartFile> postImages) {
-        Post post = mapToEntity(postDto);
+    public PostDetailsDto addPost(PostDto postDto, List<MultipartFile> postImages) {
+        Post post = null;
+        Optional<User> opUser = null;
+        Optional<Category> opCategory = null;
+        List<String> imagePaths = null;
 
-        Optional<User> opUser = userRepository.findById(postDto.getUserId());
-        if(opUser.isPresent()){
-            post.setUser(opUser.get());
-        }
-        Optional<Category> opCategory = categoryRepository.findById(postDto.getCategoryId());
-        if(opCategory.isPresent()){
-            post.setCategory(opCategory.get());
-        }
+        try {
+            logger.info("Starting addPost method");
 
-//        List<String> imagePaths  = new ArrayList<>();
-            //post images save in db
-//            for(MultipartFile image:postImages){
-//                if (!image.isEmpty()) {
-//                    String originalFilePath = System.currentTimeMillis() + "" + image.getOriginalFilename();
-//                    imagePaths.add(originalFilePath);
-//                    Path fileNameAndPath = Paths.get(uploadDir + "post_images", originalFilePath);
-//                    try{
-//                        if(fileNameAndPath != null){Files.write(fileNameAndPath,image.getBytes());}
-//                    }catch (Exception e){
-//                        e.printStackTrace();
-//                    }
-//                }
-//            }
-//        if(imagePaths != null){
-//            post.setPostImagesPath(imagePaths);
-//        }
+            post = mapToEntity(postDto);
+            opUser = userRepository.findById(postDto.getUserId());
+            if (opUser.isPresent()) {
+                post.setUser(opUser.get());
+            }
 
+            opCategory = categoryRepository.findById(postDto.getCategoryId());
+            if (opCategory.isPresent()) {
+                post.setCategory(opCategory.get());
+            }
 
-        List<String> imagePaths  = new ArrayList<>();
-        for(MultipartFile image:postImages){
+            imagePaths = new ArrayList<>();
+            for (MultipartFile image : postImages) {
                 if (!image.isEmpty()) {
                     String originalFilePath = image.getOriginalFilename();
                     String fileName = UUID.randomUUID().toString() + originalFilePath.substring(originalFilePath.lastIndexOf("."));
@@ -108,137 +102,207 @@ public class PostServiceImpl implements PostService {
                     ObjectMetadata metadata = new ObjectMetadata();
                     metadata.setContentLength(image.getSize());
 
-                    try{
-                        amazonS3.putObject(bucketName,fileName,image.getInputStream(),metadata);
-                        URL url = amazonS3.getUrl(bucketName,fileName);
-                        imagePaths.add(url.toString());
-                    }catch (Exception e){
-                        e.printStackTrace();
-                    }
+                    amazonS3.putObject(bucketName, fileName, image.getInputStream(), metadata);
+                    URL url = amazonS3.getUrl(bucketName, fileName);
+                    imagePaths.add(url.toString());
                 }
-        }
-        if(imagePaths != null){
+            }
+
             post.setPostImagesPath(imagePaths);
-        }
-
-        post.setCreateAt(LocalDateTime.now().withNano(0));
-        post.setUpdateAt(LocalDateTime.now().withNano(0));
-
-        Post saved = postRepository.save(post);
-        if(saved!=null){
-            LocalDateTime createAt = post.getCreateAt();
-            LocalDate date = createAt.toLocalDate();
-
-            String userName = post.getUser().getUserName();
-            String postTitle = post.getTitle();
-            LocalDateTime createTime = post.getCreateAt();
-
-            String message = String.format(
-                    "Hello %s,\n\n" +
-                            "Congratulations! Your post titled \"%s\" has been successfully created.\n\n" +
-                            "Thank you for contributing to our platform. We're excited to see your content making an impact!\n\n" +
-                            "Post is create by this time : %s\n\n" +
-                            "Best Regards,\n" +
-                            "[Application : Blog App] Team",
-                    userName, postTitle, createTime
-            );
-            emailService.sendMail(
-                    post.getUser().getEmail(),
-                    "Post is create by " + post.getUser().getUserName() + " on this time : "+ date,
-                    message
-            );
-        }
-        return mapToDto(saved);
-    }
-
-    @Override
-    public String deletePostDetails(Long postId) {
-        Optional<Post> opPost = postRepository.findById(postId);
-        if(opPost.isPresent()){
-            Post post = opPost.get();
-            List<String> postImagesPath = post.getPostImagesPath();
-            boolean deleteImage = false;
-            for(String filePath:postImagesPath){
-                deleteImage = awsS3Service.deleteImage(filePath);
-            }
-            if(deleteImage){
-                postRepository.deleteById(postId);
-                return "Post is deleted by post id : "+postId;
-            }
-        }
-        return "post is not found!";
-    }
-
-    @Override
-    public PostDetailsDto updatePost(Long postId, PostDto postDto,List<MultipartFile> postImages) {
-        Optional<Post> opPost = postRepository.findById(postId);
-        if(opPost.isPresent()){
-            Post post = opPost.get();
-            Optional<User> opUser = userRepository.findById(postDto.getUserId());
-            if(opUser.isPresent()){
-                post.setUser(opUser.get());
-            }
-            Optional<Category> opCategory = categoryRepository.findById(postDto.getCategoryId());
-            if(opCategory.isPresent()){
-                post.setCategory(opCategory.get());
-            }
-
-            post.setTitle(postDto.getTitle());
-            post.setDescription(postDto.getDescription());
-
-            post.setCreateAt(post.getCreateAt());
+            post.setCreateAt(LocalDateTime.now().withNano(0));
             post.setUpdateAt(LocalDateTime.now().withNano(0));
 
-            //image update
-            if (postImages != null && !postImages.isEmpty()) {
-                List<String> postImagesPath = post.getPostImagesPath();
-                boolean deleteImage = false;
-                for(String filePath:postImagesPath){
-                    deleteImage = awsS3Service.deleteImage(filePath);
-                }
-                if(deleteImage){
-                    List<String> imagePaths  = new ArrayList<>();
-                    for(MultipartFile image:postImages){
-                        if (!image.isEmpty()) {
-                            String originalFilePath = image.getOriginalFilename();
-                            String fileName = UUID.randomUUID().toString() + originalFilePath.substring(originalFilePath.lastIndexOf("."));
+            Post saved = postRepository.save(post);
+            logger.info("Post saved successfully with ID: {}", saved.getId());
 
-                            ObjectMetadata metadata = new ObjectMetadata();
-                            metadata.setContentLength(image.getSize());
+            if (saved != null) {
+                String message = String.format(
+                        "Hello %s,\n\n" +
+                                "Congratulations! Your post titled \"%s\" has been successfully created.\n\n" +
+                                "Post created at: %s\n\n" +
+                                "Best Regards,\n" +
+                                "[Blog App] Team",
+                        saved.getUser().getUserName(),
+                        saved.getTitle(),
+                        saved.getCreateAt()
+                );
 
-                            try{
-                                amazonS3.putObject(bucketName,fileName,image.getInputStream(),metadata);
-                                URL url = amazonS3.getUrl(bucketName,fileName);
-                                imagePaths.add(url.toString());
-                            }catch (Exception e){
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                    if(imagePaths != null){
-                        post.setPostImagesPath(imagePaths);
-                    }
-                }
+                emailService.sendMail(
+                        saved.getUser().getEmail(),
+                        "Post Created Successfully",
+                        message
+                );
             }
 
-            Post saved = postRepository.save(post);
             return mapToDto(saved);
+
+        } catch (Exception e) {
+            logger.error("Error occurred while adding post: {}", e.getMessage(), e);
+        } finally {
+            post = null;
+            opUser = null;
+            opCategory = null;
+            imagePaths = null;
+            logger.info("addPost method completed");
         }
         return null;
     }
 
     @Override
+    public String deletePostDetails(Long postId) {
+        Optional<Post> opPost = null;
+        List<String> postImagesPath = null;
+        boolean deleteImage = false;
+
+        try {
+            logger.info("Starting deletePostDetails method for postId: {}", postId);
+            opPost = postRepository.findById(postId);
+            if (opPost.isPresent()) {
+                Post post = opPost.get();
+                postImagesPath = post.getPostImagesPath();
+
+                for (String filePath : postImagesPath) {
+                    deleteImage = awsS3Service.deleteImage(filePath);
+                }
+
+                if (deleteImage) {
+                    postRepository.deleteById(postId);
+                    logger.info("Post deleted successfully with ID: {}", postId);
+                    return "Post is deleted by post id : " + postId;
+                }
+            }
+
+        } catch (Exception e) {
+            logger.error("Error occurred while deleting post: {}", e.getMessage(), e);
+        } finally {
+            opPost = null;
+            postImagesPath = null;
+            logger.info("deletePostDetails method completed");
+        }
+        return "Post is not found!";
+    }
+
+    @Override
+    public PostDetailsDto updatePost(Long postId, PostDto postDto, List<MultipartFile> postImages) {
+        Optional<Post> opPost = null;
+        Post post = null;
+        Optional<User> opUser = null;
+        Optional<Category> opCategory = null;
+        List<String> imagePaths = null;
+        boolean deleteImage = false;
+        Post saved = null;
+
+        try {
+            logger.info("Starting updatePost method for postId: {}", postId);
+            opPost = postRepository.findById(postId);
+            if (opPost.isPresent()) {
+                post = opPost.get();
+                opUser = userRepository.findById(postDto.getUserId());
+                if (opUser.isPresent()) {
+                    logger.info("User is present!");
+                    post.setUser(opUser.get());
+                }
+                opCategory = categoryRepository.findById(postDto.getCategoryId());
+                if (opCategory.isPresent()) {
+                    logger.info("Category is present!");
+                    post.setCategory(opCategory.get());
+                }
+
+                post.setTitle(postDto.getTitle());
+                post.setDescription(postDto.getDescription());
+
+                post.setCreateAt(post.getCreateAt());
+                post.setUpdateAt(LocalDateTime.now().withNano(0));
+
+                // Image update logic
+                if (postImages != null && !postImages.isEmpty()) {
+                    List<String> postImagesPath = post.getPostImagesPath();
+                    for (String filePath : postImagesPath) {
+                        deleteImage = awsS3Service.deleteImage(filePath);
+                    }
+                    if (deleteImage) {
+                        imagePaths = new ArrayList<>();
+                        for (MultipartFile image : postImages) {
+                            if (!image.isEmpty()) {
+                                String originalFilePath = image.getOriginalFilename();
+                                String fileName = UUID.randomUUID().toString() + originalFilePath.substring(originalFilePath.lastIndexOf("."));
+
+                                ObjectMetadata metadata = new ObjectMetadata();
+                                metadata.setContentLength(image.getSize());
+
+                                try {
+                                    amazonS3.putObject(bucketName, fileName, image.getInputStream(), metadata);
+                                    URL url = amazonS3.getUrl(bucketName, fileName);
+                                    logger.info("Image uploaded in cloud!");
+                                    imagePaths.add(url.toString());
+                                } catch (Exception e) {
+                                    logger.error("Error while uploading image to S3: {}", e.getMessage(), e);
+                                }
+                            }
+                        }
+                        if (imagePaths != null) {
+                            post.setPostImagesPath(imagePaths);
+                        }
+                    }
+                }
+
+                saved = postRepository.save(post);
+                logger.info("Post updated successfully with ID: {}", postId);
+                return mapToDto(saved);
+            } else {
+                logger.warn("Post with ID {} not found", postId);
+            }
+        } catch (Exception e) {
+            logger.error("Error updating post with ID {}: {}", postId, e.getMessage(), e);
+        } finally {
+            opPost = null;
+            post = null;
+            opUser = null;
+            opCategory = null;
+            imagePaths = null;
+            deleteImage = false;
+            saved = null;
+            logger.info("Resources cleaned up in finally block for updatePost method.");
+        }
+        return null;
+    }
+
+
+    @Override
     public PostDetailsDto findByPostId(Long postId) {
-        Optional<Post> opPost = postRepository.findById(postId);
-        if(opPost.isPresent()){
-            return mapToDto(opPost.get());
+        Optional<Post> opPost = null;
+
+        try {
+            logger.info("Starting findByPostId method for postId: {}", postId);
+            opPost = postRepository.findById(postId);
+
+            if (opPost.isPresent()) {
+                return mapToDto(opPost.get());
+            }
+
+        } catch (Exception e) {
+            logger.error("Error occurred while fetching post: {}", e.getMessage(), e);
+        } finally {
+            opPost = null;
+            logger.info("findByPostId method completed");
         }
         return null;
     }
 
     @Override
     public List<PostDetailsDto> listOfPosts() {
-        List<Post> postList = postRepository.findAll();
-        return postList.stream().map(post->mapToDto(post)).collect(Collectors.toList());
+        List<Post> postList = null;
+
+        try {
+            logger.info("Starting listOfPosts method");
+            postList = postRepository.findAll();
+            return postList.stream().map(this::mapToDto).collect(Collectors.toList());
+        } catch (Exception e) {
+            logger.error("Error occurred while listing posts: {}", e.getMessage(), e);
+        } finally {
+            postList = null;
+            logger.info("listOfPosts method completed");
+        }
+        return Collections.emptyList();
     }
 }

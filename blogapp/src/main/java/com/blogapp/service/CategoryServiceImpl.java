@@ -5,6 +5,8 @@ import com.blogapp.exception.CategoryAlreadyExistsException;
 import com.blogapp.payload.CategoryDto;
 import com.blogapp.repository.CategoryRepository;
 import org.modelmapper.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -14,7 +16,9 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
-public class CategoryServiceImpl implements CategoryService{
+public class CategoryServiceImpl implements CategoryService {
+
+    private static final Logger logger = LoggerFactory.getLogger(CategoryServiceImpl.class);
 
     @Autowired
     private CategoryRepository categoryRepository;
@@ -22,68 +26,131 @@ public class CategoryServiceImpl implements CategoryService{
     @Autowired
     private ModelMapper modelMapper;
 
-    public CategoryDto mapToDto(Category category){
-        return modelMapper.map(category,CategoryDto.class);
+    public CategoryDto mapToDto(Category category) {
+        return modelMapper.map(category, CategoryDto.class);
     }
 
-    public Category mapToEntity(CategoryDto categoryDto){
-        return modelMapper.map(categoryDto,Category.class);
+    public Category mapToEntity(CategoryDto categoryDto) {
+        return modelMapper.map(categoryDto, Category.class);
     }
 
     @Override
     public CategoryDto createCategory(CategoryDto categoryDto) {
-
-
-
-        Optional<Category> opCategory = categoryRepository.findByCategoryName(categoryDto.getCategoryName());
-        if(opCategory.isPresent()){
-            throw new CategoryAlreadyExistsException("Category " + categoryDto.getCategoryName() + " already exists.");
+        logger.info("Attempting to create category with name: {}", categoryDto.getCategoryName());
+        Optional<Category> opCategory;
+        Category category = null;
+        Category saved = null;
+        try {
+            opCategory = categoryRepository.findByCategoryName(categoryDto.getCategoryName());
+            if (opCategory.isPresent()) {
+                logger.warn("Category creation failed: Category '{}' already exists.", categoryDto.getCategoryName());
+                throw new CategoryAlreadyExistsException("Category " + categoryDto.getCategoryName() + " already exists.");
+            }
+            category = mapToEntity(categoryDto);
+            category.setCreateAt(LocalDateTime.now().withNano(0));
+            category.setUpdateAt(LocalDateTime.now().withNano(0));
+            saved = categoryRepository.save(category);
+            logger.info("Category '{}' created successfully with ID: {}", categoryDto.getCategoryName(), saved.getId());
+            return mapToDto(saved);
+        } catch (Exception e) {
+            logger.error("Failed to create category: {}", e.getMessage(), e);
+            throw e;
+        } finally {
+            opCategory = Optional.empty();
+            category = null;
+            saved = null;
         }
-        Category category = mapToEntity(categoryDto);
-        category.setCreateAt(LocalDateTime.now().withNano(0));
-        category.setUpdateAt(LocalDateTime.now().withNano(0));
-        Category saved = categoryRepository.save(category);
-        return mapToDto(saved);
     }
 
     @Override
     public String deleteCategory(Long categoryId) {
-        Optional<Category> opCategory = categoryRepository.findById(categoryId);
-        if(opCategory.isPresent()){
-            categoryRepository.deleteById(categoryId);
-            return "Category is deleted by category id : "+categoryId;
+        logger.info("Attempting to delete category with ID: {}", categoryId);
+        Optional<Category> opCategory;
+        try {
+            opCategory = categoryRepository.findById(categoryId);
+            if (opCategory.isPresent()) {
+                categoryRepository.deleteById(categoryId);
+                logger.info("Category with ID: {} deleted successfully.", categoryId);
+                return "Category is deleted by category id: " + categoryId;
+            }
+            logger.warn("Failed to delete category: Category with ID: {} not found.", categoryId);
+            return "Category is not found!";
+        } catch (Exception e) {
+            logger.error("Failed to delete category: {}", e.getMessage(), e);
+            throw e;
+        } finally {
+            opCategory = Optional.empty();
         }
-        return "Category is not found!";
     }
 
     @Override
-    public CategoryDto updateCategory(Long categoryId,CategoryDto categoryDto) {
-        Optional<Category> opCategory = categoryRepository.findById(categoryId);
-        if(opCategory.isPresent()){
-            Category ct = opCategory.get();
-            Category category = mapToEntity(categoryDto);
-            category.setId(categoryId);
-            category.setCreateAt(ct.getCreateAt());
-            category.setUpdateAt(LocalDateTime.now().withNano(0));
-            Category saved = categoryRepository.save(category);
-            return mapToDto(saved);
+    public CategoryDto updateCategory(Long categoryId, CategoryDto categoryDto) {
+        logger.info("Attempting to update category with ID: {}", categoryId);
+        Optional<Category> opCategory;
+        Category ct = null;
+        Category category = null;
+        Category saved = null;
+        try {
+            opCategory = categoryRepository.findById(categoryId);
+            if (opCategory.isPresent()) {
+                ct = opCategory.get();
+                category = mapToEntity(categoryDto);
+                category.setId(categoryId);
+                category.setCreateAt(ct.getCreateAt());
+                category.setUpdateAt(LocalDateTime.now().withNano(0));
+                saved = categoryRepository.save(category);
+                logger.info("Category with ID: {} updated successfully.", categoryId);
+                return mapToDto(saved);
+            }
+            logger.warn("Failed to update category: Category with ID: {} not found.", categoryId);
+            return null;
+        } catch (Exception e) {
+            logger.error("Failed to update category: {}", e.getMessage(), e);
+            throw e;
+        } finally {
+            opCategory = Optional.empty();
+            ct = null;
+            category = null;
+            saved = null;
         }
-        return null;
     }
 
     @Override
     public List<CategoryDto> listOfCategorys() {
-        List<Category> categoryList = categoryRepository.findAll();
-        return categoryList.stream().map((element) -> mapToDto(element)).collect(Collectors.toList());
+        logger.info("Fetching list of all categories.");
+        List<Category> categoryList = null;
+        List<CategoryDto> categoryDtoList = null;
+        try {
+            categoryList = categoryRepository.findAll();
+            logger.info("Fetched {} categories from the database.", categoryList.size());
+            categoryDtoList = categoryList.stream().map(this::mapToDto).collect(Collectors.toList());
+            return categoryDtoList;
+        } catch (Exception e) {
+            logger.error("Failed to fetch categories: {}", e.getMessage(), e);
+            throw e;
+        } finally {
+            categoryList = null;
+            categoryDtoList = null;
+        }
     }
 
     @Override
     public CategoryDto findCategorys(Long categoryId) {
-        Optional<Category> opCategory = categoryRepository.findById(categoryId);
-        if(opCategory.isPresent()){
-            return mapToDto(opCategory.get());
+        logger.info("Fetching category with ID: {}", categoryId);
+        Optional<Category> opCategory;
+        try {
+            opCategory = categoryRepository.findById(categoryId);
+            if (opCategory.isPresent()) {
+                logger.info("Category with ID: {} found.", categoryId);
+                return mapToDto(opCategory.get());
+            }
+            logger.warn("Category with ID: {} not found.", categoryId);
+            return null;
+        } catch (Exception e) {
+            logger.error("Failed to fetch category: {}", e.getMessage(), e);
+            throw e;
+        } finally {
+            opCategory = Optional.empty();
         }
-        return null;
-
     }
 }
