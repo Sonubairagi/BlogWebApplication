@@ -95,6 +95,45 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(getDetails, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
+    @ExceptionHandler(CommentNotFountException.class)
+    public ResponseEntity<ErrorDetails> handleCommentNotFountException(
+            CommentNotFountException e,
+            WebRequest request
+    ){
+        ErrorDetails getDetails = new ErrorDetails(
+                new Date(),
+                e.getMessage(),
+                request.getDescription(false)
+        );
+        return new ResponseEntity<>(getDetails, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(PostNotFoundException.class)
+    public ResponseEntity<ErrorDetails> handlePostNotFoundException(
+            PostNotFoundException e,
+            WebRequest request
+    ){
+        ErrorDetails getDetails = new ErrorDetails(
+                new Date(),
+                e.getMessage(),
+                request.getDescription(false)
+        );
+        return new ResponseEntity<>(getDetails, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(CategoryNotFoundException.class)
+    public ResponseEntity<ErrorDetails> handleCategoryNotFoundException(
+            CategoryNotFoundException e,
+            WebRequest request
+    ){
+        ErrorDetails getDetails = new ErrorDetails(
+                new Date(),
+                e.getMessage(),
+                request.getDescription(false)
+        );
+        return new ResponseEntity<>(getDetails, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorDetails> handleGlobalException(
             Exception e,

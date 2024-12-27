@@ -2,6 +2,7 @@ package com.blogapp.service;
 
 import com.blogapp.entity.Category;
 import com.blogapp.exception.CategoryAlreadyExistsException;
+import com.blogapp.exception.CategoryNotFoundException;
 import com.blogapp.payload.CategoryDto;
 import com.blogapp.repository.CategoryRepository;
 import org.modelmapper.ModelMapper;
@@ -53,66 +54,70 @@ public class CategoryServiceImpl implements CategoryService {
             logger.info("Category '{}' created successfully with ID: {}", categoryDto.getCategoryName(), saved.getId());
             return mapToDto(saved);
         } catch (Exception e) {
-            logger.error("Failed to create category: {}", e.getMessage(), e);
-            throw e;
+            logger.error("Failed to create category: {}", e.getMessage());
         } finally {
             opCategory = Optional.empty();
             category = null;
             saved = null;
         }
+        return null;
     }
 
     @Override
     public String deleteCategory(Long categoryId) {
         logger.info("Attempting to delete category with ID: {}", categoryId);
-        Optional<Category> opCategory;
+        Category category;
         try {
-            opCategory = categoryRepository.findById(categoryId);
-            if (opCategory.isPresent()) {
+            category = categoryRepository.findById(categoryId).orElseThrow(
+                    ()-> new CategoryNotFoundException("Category not found! By Id: " + categoryId)
+            );
+            if(category != null){
                 categoryRepository.deleteById(categoryId);
-                logger.info("Category with ID: {} deleted successfully.", categoryId);
+                logger.info("Category with ID: {} was deleted successfully.", categoryId);
                 return "Category is deleted by category id: " + categoryId;
             }
             logger.warn("Failed to delete category: Category with ID: {} not found.", categoryId);
             return "Category is not found!";
         } catch (Exception e) {
-            logger.error("Failed to delete category: {}", e.getMessage(), e);
-            throw e;
+            logger.error("Failed to delete category: {}", e.getMessage());
         } finally {
-            opCategory = Optional.empty();
+            category = null;
         }
+        return "Category is not found!";
     }
 
     @Override
     public CategoryDto updateCategory(Long categoryId, CategoryDto categoryDto) {
         logger.info("Attempting to update category with ID: {}", categoryId);
         Optional<Category> opCategory;
-        Category ct = null;
+        Category categoryObj = null;
         Category category = null;
         Category saved = null;
         try {
-            opCategory = categoryRepository.findById(categoryId);
-            if (opCategory.isPresent()) {
-                ct = opCategory.get();
+
+            categoryObj = categoryRepository.findById(categoryId).orElseThrow(
+                    ()-> new CategoryNotFoundException("Category not found! By Id: "+categoryId)
+            );
+            if(categoryObj != null){
+                logger.info("Success! category was founded!");
                 category = mapToEntity(categoryDto);
                 category.setId(categoryId);
-                category.setCreateAt(ct.getCreateAt());
+                category.setCreateAt(categoryObj.getCreateAt());
                 category.setUpdateAt(LocalDateTime.now().withNano(0));
                 saved = categoryRepository.save(category);
                 logger.info("Category with ID: {} updated successfully.", categoryId);
                 return mapToDto(saved);
             }
             logger.warn("Failed to update category: Category with ID: {} not found.", categoryId);
-            return null;
         } catch (Exception e) {
-            logger.error("Failed to update category: {}", e.getMessage(), e);
-            throw e;
+            logger.error("Failed to update category: {}", e.getMessage());
         } finally {
             opCategory = Optional.empty();
-            ct = null;
+            categoryObj = null;
             category = null;
             saved = null;
         }
+        return null;
     }
 
     @Override
@@ -122,35 +127,39 @@ public class CategoryServiceImpl implements CategoryService {
         List<CategoryDto> categoryDtoList = null;
         try {
             categoryList = categoryRepository.findAll();
-            logger.info("Fetched {} categories from the database.", categoryList.size());
-            categoryDtoList = categoryList.stream().map(this::mapToDto).collect(Collectors.toList());
-            return categoryDtoList;
+            if(!categoryList.isEmpty()){
+                logger.info("Fetched {} categories!", categoryList.size());
+                categoryDtoList = categoryList.stream().map(this::mapToDto).collect(Collectors.toList());
+                return categoryDtoList;
+            }
+            logger.warn("Category's not found!");
         } catch (Exception e) {
-            logger.error("Failed to fetch categories: {}", e.getMessage(), e);
-            throw e;
+            logger.error("Failed to fetch categories: {}", e.getMessage());
         } finally {
             categoryList = null;
             categoryDtoList = null;
         }
+        return null;
     }
 
     @Override
     public CategoryDto findCategorys(Long categoryId) {
         logger.info("Fetching category with ID: {}", categoryId);
-        Optional<Category> opCategory;
+        Category category = null;
         try {
-            opCategory = categoryRepository.findById(categoryId);
-            if (opCategory.isPresent()) {
+            category = categoryRepository.findById(categoryId).orElseThrow(
+                    () -> new CategoryNotFoundException("Category not found! By Id: " + categoryId)
+            );
+            if (category != null){
                 logger.info("Category with ID: {} found.", categoryId);
-                return mapToDto(opCategory.get());
+                return mapToDto(category);
             }
             logger.warn("Category with ID: {} not found.", categoryId);
-            return null;
         } catch (Exception e) {
-            logger.error("Failed to fetch category: {}", e.getMessage(), e);
-            throw e;
+            logger.error("Failed to fetch category: {}", e.getMessage());
         } finally {
-            opCategory = Optional.empty();
+            category = null;
         }
+        return null;
     }
 }

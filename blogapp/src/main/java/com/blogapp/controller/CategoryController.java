@@ -26,9 +26,17 @@ public class CategoryController {
     public ResponseEntity<CategoryDto> addCategory(
             @Valid @RequestBody CategoryDto categoryDto
     ){
-        logger.info("Success! Entering Category object: {}", categoryDto);
-        CategoryDto category = categoryService.createCategory(categoryDto);
-        return new ResponseEntity<>(category, HttpStatus.CREATED);
+        logger.info("Success! Entering Category object: {}", categoryDto.getCategoryName());
+        CategoryDto category = null;
+        try{
+            category = categoryService.createCategory(categoryDto);
+            if(category!=null){
+                return new ResponseEntity<>(category, HttpStatus.CREATED);
+            }
+        }catch (Exception e){
+            logger.error("Category details has not right: {}",e.getMessage());
+        }
+        return new ResponseEntity<>(category, HttpStatus.BAD_REQUEST);
     }
 
     //http://localhost:8080/api/v1/category/deleteCategory/{categoryId}
@@ -52,14 +60,18 @@ public class CategoryController {
             @PathVariable Long categoryId,
             @RequestBody CategoryDto categoryDto
     ){
-        logger.info("Update category details: {}", categoryDto);
+        logger.info("Update category details: {}", categoryDto.getCategoryName());
         CategoryDto category = null;
-        if(categoryId != null){
+        if(categoryId != null && categoryId > 0){
             logger.info("Success! Updated Category id is: {}",categoryId);
             category = categoryService.updateCategory(categoryId,categoryDto);
-            return new ResponseEntity<>(category, HttpStatus.OK);
+            if(category != null){
+                return new ResponseEntity<>(category, HttpStatus.OK);
+            }else {
+                return new ResponseEntity<>(category, HttpStatus.BAD_REQUEST);
+            }
         }else {
-            logger.error("Failed! Category id is not correct: {}", categoryId);
+            logger.error("Failed! Category id is not present: {}", categoryId);
             return new ResponseEntity<>(category, HttpStatus.BAD_REQUEST);
         }
     }
@@ -68,7 +80,7 @@ public class CategoryController {
     @GetMapping
     public ResponseEntity<List<CategoryDto>> getCategorys(){
         List<CategoryDto> categorys = categoryService.listOfCategorys();
-        logger.info("Getting all the categorys objects: {}",categorys);
+        logger.info("Getting all the category's objects: {}",categorys.size());
         return new ResponseEntity<>(categorys, HttpStatus.OK);
     }
 
@@ -78,10 +90,14 @@ public class CategoryController {
             @PathVariable Long categoryId
     ){
         CategoryDto categorys = null;
-        if(categoryId != null){
+        if(categoryId != null && categoryId > 0){
             logger.info("Success! Get the category id is: {}",categoryId);
             categorys = categoryService.findCategorys(categoryId);
-            return new ResponseEntity<>(categorys, HttpStatus.OK);
+            if(categorys != null){
+                return new ResponseEntity<>(categorys, HttpStatus.OK);
+            }
+            logger.warn("Category not found! By Id: {}",categoryId);
+            return new ResponseEntity<>(categorys, HttpStatus.BAD_REQUEST);
         }else{
             logger.error("Failed! Get the category id is not correct: {}", categoryId);
             return new ResponseEntity<>(categorys, HttpStatus.BAD_REQUEST);

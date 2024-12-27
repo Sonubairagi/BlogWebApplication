@@ -20,7 +20,7 @@ public class PostController {
 
     private static final Logger logger = LoggerFactory.getLogger(PostController.class);
 
-    private PostService postService;
+    private final PostService postService;
     public PostController(PostService postService){
         this.postService = postService;
     }
@@ -31,14 +31,17 @@ public class PostController {
             @Valid @RequestPart("postDto") PostDto postDto,
             @RequestPart("file") List<MultipartFile> postImages
     ){
-        logger.info("Entering post object: {}", postDto);
+        logger.info("Entering post object: {}", postDto.getId());
         PostDetailsDto post = null;
-        if(postImages != null) {
-            logger.info("Success! images is coming on this URL!");
-            if (postImages.size() <= 3) {
-                logger.info("Successfully retrieved post images: {}", postImages);
+        if(!postImages.isEmpty() && !postImages.get(0).getOriginalFilename().isBlank()) {
+            logger.info("Success! images is coming on the URL! {}",getPosts());
+            if (!postImages.isEmpty() && postImages.size() <= 3) {
+                logger.info("Successfully retrieved post images: {}",postImages);
                 post = postService.addPost(postDto, postImages);
-                return new ResponseEntity<>(post, HttpStatus.CREATED);
+                if (post != null){
+                    return new ResponseEntity<>(post, HttpStatus.CREATED);
+                }
+                return new ResponseEntity<>(post, HttpStatus.BAD_REQUEST);
             } else {
                 ImagesLimitExceedException e = new ImagesLimitExceedException("You can upload maximum 3 images!");
                 logger.error("Failed! Images Limit Exceed: {} : {}", e.getMessage(), e.getStackTrace());
@@ -72,15 +75,19 @@ public class PostController {
             @RequestPart("postDto") PostDto postDto,
             @RequestPart("file") List<MultipartFile> postImages
     ){
-        logger.info("Update post object: {}", postDto);
+        logger.info("Update post object: {}", postDto.getId());
         PostDetailsDto updatePost = null;
 
-        if(postImages != null) {
+        if(!postImages.isEmpty() && !postImages.get(0).getOriginalFilename().isBlank()) {
             logger.info("Success! images is coming on this URL!");
-            if (postImages.size() <= 3) {
-                logger.info("Successfully retrieved update post images: {}", postImages);
+            if (!postImages.isEmpty() && postImages.size() <= 3) {
+                logger.info("Successfully retrieved update post images: {}", postImages.size());
                 updatePost = postService.updatePost(postId, postDto, postImages);
-                return new ResponseEntity<>(updatePost, HttpStatus.OK);
+                if(updatePost != null){
+                    return new ResponseEntity<>(updatePost, HttpStatus.OK);
+                }
+                logger.warn("Post was not updated! : {}",postId);
+                return new ResponseEntity<>(updatePost, HttpStatus.BAD_REQUEST);
             } else {
                 ImagesLimitExceedException e = new ImagesLimitExceedException("You can upload maximum 3 images!");
                 logger.error("Failed! New Images Limit Exceed: {} : {}", e.getMessage(), e.getStackTrace());
@@ -101,7 +108,11 @@ public class PostController {
         if(postId != null){
             logger.info("Success! Get the post id is: {}",postId);
             post = postService.findByPostId(postId);
-            return new ResponseEntity<>(post, HttpStatus.OK);
+            if(post != null){
+                return new ResponseEntity<>(post, HttpStatus.OK);
+            }
+            logger.warn("Post not found! By Id: {}",postId);
+            return new ResponseEntity<>(post, HttpStatus.BAD_REQUEST);
         }else{
             logger.error("Failed! Get the post id is not correct: {}", postId);
             return new ResponseEntity<>(post,HttpStatus.BAD_REQUEST);
@@ -111,9 +122,18 @@ public class PostController {
     //http://localhost:8080/api/v1/post
     @GetMapping
     public ResponseEntity<List<PostDetailsDto>> getPosts(){
-        List<PostDetailsDto> posts = postService.listOfPosts();
-        logger.info("Getting all the posts object: {}",posts);
-        return new ResponseEntity<>(posts, HttpStatus.OK);
+        List<PostDetailsDto> posts = null;
+        try{
+            posts = postService.listOfPosts();
+            if(posts!=null){
+                logger.info("Getting all the posts object: {}",posts.size());
+                return new ResponseEntity<>(posts, HttpStatus.OK);
+            }
+            logger.warn("Posts not found!");
+        }catch (Exception e){
+            logger.error("Post's was not founded! : {} : {}",e.getMessage(),e.getStackTrace());
+        }
+        return new ResponseEntity<>(posts, HttpStatus.BAD_REQUEST);
     }
 
 }

@@ -92,21 +92,22 @@ public class UserServiceImpl implements UserService{
 
     @Override
     public UserDetailsDto userRegister(UserDto userDto,MultipartFile profileImage){
-        logger.debug("Processing user with user object: {}", userDto);
+        logger.debug("Processing user with user object: {}", userDto.getEmail());
         User user = null;
+        Optional<User> opUser = null;
         String imageUrl = null;
         String subject = null;
         String verificationLink = null;
         String body = null;
         User saved = null;
         try{
-            Optional<User> opUser = userRepository.findByUserName(userDto.getUserName());
+            opUser = userRepository.findByEmail(userDto.getEmail());
             if(opUser.isPresent()){
                 logger.warn("Warning! User Already Exists: {}", opUser.get().getUserName());
-                throw new UserAlreadyExistsException("User with username " + userDto.getUserName() + " already exists.");
+                throw new UserAlreadyExistsException("User with user email " + userDto.getEmail() + " already exists.");
             }
 
-            logger.info("Successfully processed user: {}", opUser);
+            logger.info("Successfully processed user: {}", userDto.getUserName());
 
             user = mapToEntity(userDto);
             user.setRole("ROLE_USER");
@@ -130,10 +131,10 @@ public class UserServiceImpl implements UserService{
             //image upload in aws cloud
             if(profileImage != null && !profileImage.isEmpty()){
                 imageUrl = awsS3Service.uploadImage(profileImage);
-                logger.info("Successfully processed user profile image: {}", profileImage);
+                logger.info("Successfully processed user profile image: {}", profileImage.getName());
                 user.setProfileImagePath(imageUrl);
             }else{
-               logger.warn("User profile image is not getting: {}",profileImage);
+               logger.warn("User profile image is not getting: {}",profileImage.getName());
             }
 
             user.setAddress(mapToAddress(userDto));
@@ -142,11 +143,11 @@ public class UserServiceImpl implements UserService{
             body = emailFormatting(userDto.getUserName(), verificationLink);
 
             saved = userRepository.save(user);
-            logger.info("User registration Successfully!");
+            logger.info("User registration Successfully! : {}",saved.getId());
             if(saved != null){
                 try {
                     subject = "Email Verification";
-                    logger.info("User registration email sending...");
+                    logger.info("User registration email sending... {}",user.getEmail());
                     emailSenderService.sendHtmlEmail(user.getEmail(),subject,body); //MessagingException
                 } catch (Exception e) {
                     logger.error("User registration failed! not sending email: {} : {}",e.getMessage(),e.getStackTrace());
@@ -203,18 +204,20 @@ public class UserServiceImpl implements UserService{
         logger.debug("Processing user with ID: {}", userId);
         boolean deleteImage = false;
         try{
-            Optional<User> opUser = userRepository.findById(userId);
-            if(opUser.isPresent()){
+            User user = userRepository.findById(userId).orElseThrow(
+                    ()-> new UserNotFoundException("User not found! By Id: "+userId)
+            );
+            if(user != null){
                 logger.info("Successfully processed user!");
-                deleteImage = awsS3Service.deleteImage(opUser.get().getProfileImagePath());
+                deleteImage = awsS3Service.deleteImage(user.getProfileImagePath());
                 if(deleteImage){
                     userRepository.deleteById(userId);
-                    logger.info("Successfully processed user is deleted!");
+                    logger.info("Successfully processed user was deleted!");
                     return "User is deleted by user id : "+userId;
                 }
             }
         }catch (Exception e){
-            logger.error("User not found: {}",e.getMessage());
+            logger.error("User was not deleted! Something Wrong : {}",e.getMessage());
             throw new UserNotFoundException("user is not found by userId " + userId);
         }
         return "user is not found!";
@@ -223,28 +226,27 @@ public class UserServiceImpl implements UserService{
     @Override
     public UserDetailsDto updateUserDetails(Long userId, UserDto userDto,MultipartFile profileImage) {
         logger.debug("Processing user with id: {}", userId);
-        Optional<User> opUser;
+        User user = null;
         boolean deleteImage = false;
         String newImageUrl = null;
         try{
-            opUser = userRepository.findById(userId);
-            if(opUser.isPresent()){
-                logger.info("Successfully processed user");
-                User user = opUser.get();
+            user = userRepository.findById(userId).orElseThrow(
+                    ()-> new UserNotFoundException("User not found! By Id: "+ userId)
+            );
+            if(user != null){
+                logger.info("Successfully processed user by : {}",userDto.getUserName());
                 user.setUserName(userDto.getUserName());
                 user.setMobile(userDto.getMobile());
                 user.setRole(user.getRole());
                 user.setCreateAt(user.getCreateAt());
                 user.setUpdateAt(LocalDateTime.now().withNano(0));
-
                 user.setAddress(mapToAddress(userDto));
-
                 if (profileImage != null && !profileImage.isEmpty()) {
                     deleteImage = awsS3Service.deleteImage(user.getProfileImagePath());
                     if(deleteImage){
                         newImageUrl = awsS3Service.uploadImage(profileImage);
                         user.setProfileImagePath(newImageUrl);
-                        logger.info("Success! processed user profile image: {}", profileImage);
+                        logger.info("Success! processed user profile image: {}", profileImage.getName());
                     }
                 }
                 //password not update
@@ -254,8 +256,10 @@ public class UserServiceImpl implements UserService{
                 logger.info("Success! update user details");
                 return mapToDto(saved);
             }
+            logger.warn("User not found! By Id: {}",userId);
         }catch (Exception e){
             logger.error("User details not updated: {} : {}",e.getMessage(),e.getStackTrace());
+            throw new UserNotFoundException("User not found you can check right user id!");
         }
         return null;
     }
@@ -263,19 +267,32 @@ public class UserServiceImpl implements UserService{
     @Override
     public UserDetailsDto getUserById(Long userId) {
         logger.debug("Processing get user with ID: {}", userId);
-        Optional<User> opUser = userRepository.findById(userId);
-        if(opUser.isPresent()){
-            logger.info("Success! User object is present");
-            return mapToDto(opUser.get());
+        try {
+            User user = userRepository.findById(userId).orElseThrow(
+                    ()-> new UserNotFoundException("User not found! By Id: "+userId)
+            );
+            if(user != null){
+                logger.info("Success! User object is present");
+                return mapToDto(user);
+            }
+            logger.warn("User not found! : {}",userId);
+        }catch (Exception e){
+            logger.error("user not found by id: {} : {}",userId ,new UserNotFoundException("User not exists!").getMessage());
+            throw new UserNotFoundException("User not exists!");
         }
-        logger.warn("user not found by id: {}",userId);
         return null;
     }
 
     @Override
     public List<UserDetailsDto> listOfUsers() {
         logger.debug("Processing get all users..");
-        List<User> userList = userRepository.findAll();
-        return userList.stream().map((element) -> modelMapper.map(element, UserDetailsDto.class)).collect(Collectors.toList());
+        List<User> userList = null;
+        try {
+            userList = userRepository.findAll();
+            return userList.stream().map((element) -> modelMapper.map(element, UserDetailsDto.class)).collect(Collectors.toList());
+        }catch (Exception e){
+            logger.error("User's not found! : {}",e.getMessage());
+        }
+        return null;
     }
 }
