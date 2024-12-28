@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- Define the pattern for logs -->
+    <property name="LOG_PATTERN" value="%d{dd-MM-yyyy HH:mm:ss} - %level - %logger{36} - %msg%n" />
+    <!-- Define property from Spring application.properties -->
+    <springProperty scope="context" name="LOG_FILE_PATH" source="LOG_FILE_PATH" />
+
+    <!-- Console Appender (for console logs) -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Trace and Debug logs (to trace_<date>.log) -->
+    <appender name="TRACE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE_PATH}%d{dd-MM-yyyy}/trace_%d{dd-MM-yyyy}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+        <!-- Filter to exclude ERROR level logs -->
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>DENY</onMatch>
+            <onMismatch>NEUTRAL</onMismatch>
+        </filter>
+    </appender>
+
+    <!-- Error logs (to error_<date>.log) -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE_PATH}%d{dd-MM-yyyy}/error_%d{dd-MM-yyyy}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+    </appender>
+
+    <!-- Root Logger Configuration -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+<!--        <appender-ref ref="TRACE_FILE"/>-->
+        <appender-ref ref="ERROR_FILE"/>
+    </root>
+
+    <!-- Logger for Specific Packages -->
+    <logger name="com.xplore" level="DEBUG">
+        <appender-ref ref="TRACE_FILE"/>
+    </logger>
+
+</configuration>
