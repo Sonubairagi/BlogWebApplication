@@ -2,56 +2,78 @@ package com.xplore.exception_handler;
 import com.xplore.exception.*;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import com.xplore.payload.ErrorDetails;
 import com.xplore.payload.ValidationError;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
-import java.util.Date;
+
+import com.xplore.payload.ApiErrorResponse;
+import org.slf4j.MDC;
+
+import jakarta.servlet.http.HttpServletRequest;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
     @ExceptionHandler(ImagesLimitExceedException.class)
-    public ResponseEntity<ErrorDetails> handleImagesNotAcceptedException(
-            ImagesLimitExceedException e,
-            WebRequest request
+    public ResponseEntity<ApiErrorResponse> handleImagesNotAcceptedException(
+            ImagesLimitExceedException ex,
+            HttpServletRequest request
     ){
-        ErrorDetails getDetails = new ErrorDetails(
-                new Date(),
-                e.getMessage(),
-                request.getDescription(false)
+        String correlationId = MDC.get("correlationId") != null ? MDC.get("correlationId") : "N/A";
+        String apiName = request.getMethod() + " " + request.getRequestURI();
+
+        ApiErrorResponse errorResponse = new ApiErrorResponse(
+                correlationId,
+                apiName,
+                ex.getMessage(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Failed"
         );
-        return new ResponseEntity<>(getDetails, HttpStatus.NOT_ACCEPTABLE);
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(CategoryAlreadyExistsException.class)
-    public ResponseEntity<ErrorDetails> handleCategoryException(
-            CategoryAlreadyExistsException e,
-            WebRequest request
+    public ResponseEntity<ApiErrorResponse> handleCategoryException(
+            CategoryAlreadyExistsException ex,
+            HttpServletRequest request
     ){
-        ErrorDetails getDetails = new ErrorDetails(
-                new Date(),
-                e.getMessage(),
-                request.getDescription(false)
+        String correlationId = MDC.get("correlationId") != null ? MDC.get("correlationId") : "N/A";
+        String apiName = request.getMethod() + " " + request.getRequestURI();
+
+        ApiErrorResponse errorResponse = new ApiErrorResponse(
+                correlationId,
+                apiName,
+                ex.getMessage(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Failed"
         );
-        return new ResponseEntity<>(getDetails, HttpStatus.INTERNAL_SERVER_ERROR);
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(UserAlreadyExistsException.class)
-    public ResponseEntity<ErrorDetails> handleUserException(
-            UserAlreadyExistsException e,
-            WebRequest request
+    public ResponseEntity<ApiErrorResponse> handleUserException(
+            UserAlreadyExistsException ex,
+            HttpServletRequest request
     ){
-        ErrorDetails getDetails = new ErrorDetails(
-                new Date(),
-                e.getMessage(),
-                request.getDescription(false)
+        String correlationId = MDC.get("correlationId") != null ? MDC.get("correlationId") : "N/A";
+        String apiName = request.getMethod() + " " + request.getRequestURI();
+
+        ApiErrorResponse errorResponse = new ApiErrorResponse(
+                correlationId,
+                apiName,
+                ex.getMessage(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Failed"
         );
-        return new ResponseEntity<>(getDetails, HttpStatus.INTERNAL_SERVER_ERROR);
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -70,80 +92,135 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(ImageUploadException.class)
-    public ResponseEntity<ErrorDetails> handleImageUploadException(
-            ImageUploadException e,
-            WebRequest request
+    public ResponseEntity<ApiErrorResponse> handleImageUploadException(
+            ImageUploadException ex,
+            HttpServletRequest request
     ){
-        ErrorDetails getDetails = new ErrorDetails(
-                new Date(),
-                e.getMessage(),
-                request.getDescription(false)
+        String correlationId = MDC.get("correlationId") != null ? MDC.get("correlationId") : "N/A";
+        String apiName = request.getMethod() + " " + request.getRequestURI();
+
+        ApiErrorResponse errorResponse = new ApiErrorResponse(
+                correlationId,
+                apiName,
+                ex.getMessage(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Failed"
         );
-        return new ResponseEntity<>(getDetails, HttpStatus.INTERNAL_SERVER_ERROR);
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<ErrorDetails> handleUserNotFoundException(
-            UserNotFoundException e,
-            WebRequest request
+    public ResponseEntity<ApiErrorResponse> handleUserNotFoundException(
+            UserNotFoundException ex,
+            HttpServletRequest request
     ){
-        ErrorDetails getDetails = new ErrorDetails(
-                new Date(),
-                e.getMessage(),
-                request.getDescription(false)
+        String correlationId = MDC.get("correlationId") != null ? MDC.get("correlationId") : "N/A";
+        String apiName = request.getMethod() + " " + request.getRequestURI();
+
+        ApiErrorResponse errorResponse = new ApiErrorResponse(
+                correlationId,
+                apiName,
+                ex.getMessage(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Failed"
         );
-        return new ResponseEntity<>(getDetails, HttpStatus.INTERNAL_SERVER_ERROR);
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(CommentNotFountException.class)
-    public ResponseEntity<ErrorDetails> handleCommentNotFountException(
-            CommentNotFountException e,
-            WebRequest request
+    public ResponseEntity<ApiErrorResponse> handleCommentNotFountException(
+            CommentNotFountException ex,
+            HttpServletRequest request
     ){
-        ErrorDetails getDetails = new ErrorDetails(
-                new Date(),
-                e.getMessage(),
-                request.getDescription(false)
+        String correlationId = MDC.get("correlationId") != null ? MDC.get("correlationId") : "N/A";
+        String apiName = request.getMethod() + " " + request.getRequestURI();
+
+        ApiErrorResponse errorResponse = new ApiErrorResponse(
+                correlationId,
+                apiName,
+                ex.getMessage(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Failed"
         );
-        return new ResponseEntity<>(getDetails, HttpStatus.INTERNAL_SERVER_ERROR);
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(PostNotFoundException.class)
-    public ResponseEntity<ErrorDetails> handlePostNotFoundException(
-            PostNotFoundException e,
-            WebRequest request
+    public ResponseEntity<ApiErrorResponse> handlePostNotFoundException(
+            PostNotFoundException ex,
+            HttpServletRequest request
     ){
-        ErrorDetails getDetails = new ErrorDetails(
-                new Date(),
-                e.getMessage(),
-                request.getDescription(false)
+        String correlationId = MDC.get("correlationId") != null ? MDC.get("correlationId") : "N/A";
+        String apiName = request.getMethod() + " " + request.getRequestURI();
+
+        ApiErrorResponse errorResponse = new ApiErrorResponse(
+                correlationId,
+                apiName,
+                ex.getMessage(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Failed"
         );
-        return new ResponseEntity<>(getDetails, HttpStatus.INTERNAL_SERVER_ERROR);
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(CategoryNotFoundException.class)
-    public ResponseEntity<ErrorDetails> handleCategoryNotFoundException(
-            CategoryNotFoundException e,
-            WebRequest request
+    public ResponseEntity<ApiErrorResponse> handleCategoryNotFoundException(
+            CategoryNotFoundException ex,
+            HttpServletRequest request
     ){
-        ErrorDetails getDetails = new ErrorDetails(
-                new Date(),
-                e.getMessage(),
-                request.getDescription(false)
+        String correlationId = MDC.get("correlationId") != null ? MDC.get("correlationId") : "N/A";
+        String apiName = request.getMethod() + " " + request.getRequestURI();
+
+        ApiErrorResponse errorResponse = new ApiErrorResponse(
+                correlationId,
+                apiName,
+                ex.getMessage(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Failed"
         );
-        return new ResponseEntity<>(getDetails, HttpStatus.INTERNAL_SERVER_ERROR);
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(VerificationFailed.class)
+    public ResponseEntity<ApiErrorResponse> handleGlobalException(
+            VerificationFailed ex,
+            HttpServletRequest request
+    ){
+        String correlationId = MDC.get("correlationId") != null ? MDC.get("correlationId") : "N/A";
+        String apiName = request.getMethod() + " " + request.getRequestURI();
+
+        ApiErrorResponse errorResponse = new ApiErrorResponse(
+                correlationId,
+                apiName,
+                ex.getMessage(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Failed"
+        );
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorDetails> handleGlobalException(
-            Exception e,
-            WebRequest request
+    public ResponseEntity<ApiErrorResponse> handleGlobalException(
+            Exception ex,
+            HttpServletRequest request
     ){
-        ErrorDetails getDetails = new ErrorDetails(
-                new Date(),
-                e.getMessage(),
-                request.getDescription(false)
+        String correlationId = MDC.get("correlationId") != null ? MDC.get("correlationId") : "N/A";
+        String apiName = request.getMethod() + " " + request.getRequestURI();
+
+        ApiErrorResponse errorResponse = new ApiErrorResponse(
+                correlationId,
+                apiName,
+                ex.getMessage(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Failed"
         );
-        return new ResponseEntity<>(getDetails, HttpStatus.INTERNAL_SERVER_ERROR);
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

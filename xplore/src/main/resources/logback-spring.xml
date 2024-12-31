@@ -2,7 +2,7 @@
 <configuration>
 
     <!-- Define the pattern for logs -->
-    <property name="LOG_PATTERN" value="%d{dd-MM-yyyy HH:mm:ss} - %level - %logger{36} - %msg%n" />
+    <property name="LOG_PATTERN" value="%d{dd-MM-yyyy HH:mm:ss} - %level - %logger{36} - %X{correlationId} %X{username} %X{apiName} : %msg%n" />
     <!-- Define property from Spring application.properties -->
     <springProperty scope="context" name="LOG_FILE_PATH" source="LOG_FILE_PATH" />
 

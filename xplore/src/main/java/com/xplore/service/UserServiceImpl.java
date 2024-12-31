@@ -93,7 +93,7 @@ public class UserServiceImpl implements UserService{
     @Override
     public UserDetailsDto userRegister(UserDto userDto,MultipartFile profileImage){
         logger.debug("Processing user with user object: {}", userDto.getEmail());
-        User user = null;
+            User user = null;
         Optional<User> opUser = null;
         String imageUrl = null;
         String subject = null;
@@ -257,7 +257,11 @@ public class UserServiceImpl implements UserService{
                 return mapToDto(saved);
             }
             logger.warn("User not found! By Id: {}",userId);
-        }catch (Exception e){
+        }catch (UserAlreadyExistsException e) {
+            logger.warn("User Already Exists Exception: {}", e.getMessage());
+            throw e; // Re-throw the exception to allow it to bubble up to the controller layer
+        }
+        catch (Exception e){
             logger.error("User details not updated: {} : {}",e.getMessage(),e.getStackTrace());
             throw new UserNotFoundException("User not found you can check right user id!");
         }

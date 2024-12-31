@@ -1,7 +1,8 @@
 package com.xplore.controller;
 
 import com.xplore.exception.ImageUploadException;
-import com.xplore.exception.ImagesLimitExceedException;
+import com.xplore.exception.UserNotFoundException;
+import com.xplore.exception.VerificationFailed;
 import com.xplore.payload.LoginDto;
 import com.xplore.payload.UserDetailsDto;
 import com.xplore.payload.UserDto;
@@ -34,20 +35,21 @@ public class UserController {
             @Valid @RequestPart("userDto") UserDto userDto,
             @RequestPart("profileImage") MultipartFile profileImage
     ){
+
         logger.info("Entering getUser with User: {}", userDto.getUserName());
         UserDetailsDto userDetails = null;
 
-        if(!profileImage.isEmpty() || !profileImage.getOriginalFilename().isBlank()){
+        if(!profileImage.isEmpty() || !profileImage.getOriginalFilename().isBlank()) {
             logger.info("Successfully retrieved profile image: {}", profileImage.getName());
-            userDetails = userService.userRegister(userDto,profileImage);
-            if(userDetails != null){
+            userDetails = userService.userRegister(userDto, profileImage);
+            if (userDetails != null) {
                 return new ResponseEntity<>(userDetails, HttpStatus.CREATED);
             }
             return new ResponseEntity<>(userDetails, HttpStatus.BAD_REQUEST);
-        }else{
-            ImageUploadException e = new ImageUploadException("Image is not getting!");
-            logger.error("Failed! to retrieve user profile image: {} : {}",e.getMessage(),e.getStackTrace());
-            return new ResponseEntity<>(userDetails, HttpStatus.BAD_REQUEST);
+            }else {
+                ImageUploadException e = new ImageUploadException("Image is not getting!");
+                logger.error("Failed! to retrieve user profile image: {} : {}",e.getMessage(),e.getStackTrace());
+                throw new ImageUploadException("Image is not getting!");
         }
     }
 
@@ -66,8 +68,9 @@ public class UserController {
             logger.info("Successfully retrieved user verify email: {} is verified: {}", userEmailId,isVerified);
             return new ResponseEntity<>("User successfully verified!",HttpStatus.OK);
         } else {
-            logger.error("Failed to User verification: {}", isVerified);
-            return new ResponseEntity<>("Invalid user email ID.",HttpStatus.BAD_REQUEST);
+            VerificationFailed vr = new VerificationFailed("Failed to User verification...");
+            logger.error("Failed to User {} verification: {} : {}",userEmailId,isVerified,vr.getMessage());
+            throw new VerificationFailed("Failed to User verification : " + vr.getMessage() + " " + vr.getStackTrace());
         }
     }
 
@@ -91,7 +94,7 @@ public class UserController {
             return new ResponseEntity<>(deleteUser, HttpStatus.OK);
         }else {
             logger.error("Failed! User id is not getting: {}", userId);
-            return new ResponseEntity<>("User id not getting...", HttpStatus.BAD_REQUEST);
+            throw new UserNotFoundException("Failed! User id is not getting: " + userId);
         }
     }
 
@@ -114,10 +117,10 @@ public class UserController {
                 return new ResponseEntity<>(updateUser, HttpStatus.BAD_REQUEST);
             }
             logger.warn("User profile not found!");
-            return new ResponseEntity<>(updateUser, HttpStatus.BAD_REQUEST);
+            throw new ImageUploadException("User profile not found!"+profileImage.getOriginalFilename());
         }else{
             logger.error("Failed! User id is not correct: {}", userId);
-            return new ResponseEntity<>(updateUser, HttpStatus.BAD_REQUEST);
+            throw new UserNotFoundException("Failed! User id is not getting: " + userId);
         }
     }
 
@@ -134,10 +137,10 @@ public class UserController {
                 return new ResponseEntity<>(user,HttpStatus.OK);
             }
             logger.warn("User not found! By Id: {}",userId);
-            return new ResponseEntity<>(user,HttpStatus.BAD_REQUEST);
+            throw new UserNotFoundException("Failed! User not found! By Id: " + userId);
         }else{
             logger.error("Failed! Get the User id is not correct: {}", userId);
-            return new ResponseEntity<>(user,HttpStatus.BAD_REQUEST);
+            throw new UserNotFoundException("Failed! User not found! By Id: " + userId);
         }
     }
 
@@ -151,6 +154,7 @@ public class UserController {
                 logger.info("Getting all the users object: {}",listOfUsers.size());
                 return new ResponseEntity<>(listOfUsers,HttpStatus.OK);
             }
+            throw new UserNotFoundException("Failed! Users not found!");
         }catch (Exception e){
             logger.error("User's not found! : {}",e.getMessage());
         }

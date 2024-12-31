@@ -1,6 +1,8 @@
 package com.xplore.controller;
 
+import com.xplore.exception.ImageUploadException;
 import com.xplore.exception.ImagesLimitExceedException;
+import com.xplore.exception.PostNotFoundException;
 import com.xplore.payload.PostDetailsDto;
 import com.xplore.payload.PostDto;
 import com.xplore.service.PostService;
@@ -41,7 +43,7 @@ public class PostController {
                 if (post != null){
                     return new ResponseEntity<>(post, HttpStatus.CREATED);
                 }
-                return new ResponseEntity<>(post, HttpStatus.BAD_REQUEST);
+                throw new PostNotFoundException("Failed! Post not created!");
             } else {
                 ImagesLimitExceedException e = new ImagesLimitExceedException("You can upload maximum 3 images!");
                 logger.error("Failed! Images Limit Exceed: {} : {}", e.getMessage(), e.getStackTrace());
@@ -49,7 +51,7 @@ public class PostController {
             }
         }else {
             logger.error("Failed! to retrieve post images: {}",postImages);
-            return new ResponseEntity<>(post, HttpStatus.BAD_REQUEST);
+            throw new ImageUploadException("You can upload images!");
         }
     }
 
@@ -64,7 +66,7 @@ public class PostController {
             return new ResponseEntity<>(deletePost, HttpStatus.OK);
         }else{
             logger.error("Failed! post id is not getting: {}", postId);
-            return new ResponseEntity<>("Post id not getting...", HttpStatus.BAD_REQUEST);
+            throw new PostNotFoundException("Failed! Post not found! By Id: "+postId);
         }
     }
 
@@ -87,7 +89,7 @@ public class PostController {
                     return new ResponseEntity<>(updatePost, HttpStatus.OK);
                 }
                 logger.warn("Post was not updated! : {}",postId);
-                return new ResponseEntity<>(updatePost, HttpStatus.BAD_REQUEST);
+                throw new PostNotFoundException("Failed! Post not found! By Id: "+postId);
             } else {
                 ImagesLimitExceedException e = new ImagesLimitExceedException("You can upload maximum 3 images!");
                 logger.error("Failed! New Images Limit Exceed: {} : {}", e.getMessage(), e.getStackTrace());
@@ -95,7 +97,7 @@ public class PostController {
             }
         }else{
             logger.error("Failed! to retrieve update post images: {}",postImages);
-            return new ResponseEntity<>(updatePost, HttpStatus.BAD_REQUEST);
+            throw new ImageUploadException("You can upload images!");
         }
     }
 
@@ -112,10 +114,10 @@ public class PostController {
                 return new ResponseEntity<>(post, HttpStatus.OK);
             }
             logger.warn("Post not found! By Id: {}",postId);
-            return new ResponseEntity<>(post, HttpStatus.BAD_REQUEST);
+            throw new PostNotFoundException("Failed! Post not found! By Id: "+postId);
         }else{
             logger.error("Failed! Get the post id is not correct: {}", postId);
-            return new ResponseEntity<>(post,HttpStatus.BAD_REQUEST);
+            throw new PostNotFoundException("Failed! Post not found! By Id: " + postId);
         }
     }
 
@@ -133,7 +135,6 @@ public class PostController {
         }catch (Exception e){
             logger.error("Post's was not founded! : {} : {}",e.getMessage(),e.getStackTrace());
         }
-        return new ResponseEntity<>(posts, HttpStatus.BAD_REQUEST);
+        throw new PostNotFoundException("Posts not found!");
     }
-
 }
